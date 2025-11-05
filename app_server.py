@@ -65,7 +65,7 @@ def health():
 
 @app.route("/api/beacons", methods=["GET", "POST"])
 def beacons():
-    """비콘 좌표 및 맵 크기 정보 저장/로드"""
+    """비콘 좌표 저장 시 중복 MAC 자동 정리"""
     if request.method == "GET":
         return jsonify(_read_json("config_beacon_map.json", {
             "beacons": {},
@@ -74,9 +74,26 @@ def beacons():
             "pixel_width": 675,
             "pixel_height": 437
         }))
+
     data = request.get_json(force=True)
-    _write_json("config_beacon_map.json", data)
-    return jsonify(status="ok")
+    new_beacons = data.get("beacons", {})
+
+    # 기존 데이터 불러오기
+    current = _read_json("config_beacon_map.json", {})
+    current_beacons = current.get("beacons", {})
+
+    # 같은 mac이면 새 좌표로 덮어쓰기
+    current_beacons.update(new_beacons)
+
+    current["beacons"] = current_beacons
+    current["real_width_m"] = data.get("real_width_m", current.get("real_width_m", 45.0))
+    current["real_height_m"] = data.get("real_height_m", current.get("real_height_m", 29.8))
+    current["pixel_width"] = data.get("pixel_width", current.get("pixel_width", 675))
+    current["pixel_height"] = data.get("pixel_height", current.get("pixel_height", 437))
+
+    _write_json("config_beacon_map.json", current)
+    return jsonify(status="ok", beacons=current_beacons)
+
 
 @app.route("/api/pathnodes", methods=["GET", "POST"])
 def pathnodes():
